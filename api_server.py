@@ -83,6 +83,7 @@ def save_debug_image(cell_values, grid, path, start, filename=None):
     plt.close(fig)
     print(f"Debug image saved to {filename}")
 
+
 class PlannerHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, data):
         body = json.dumps(data).encode('utf-8')
@@ -133,13 +134,16 @@ class PlannerHandler(BaseHTTPRequestHandler):
         # Run the planner with a penalty on low-value cells so the search will
         # try to avoid them but still traverse a minimal amount if necessary.
         cp = CoveragePlanner(grid, cell_values=cell_values)
+
         cp.start(initial_orientation=orientation,
                  cp_heuristic=HEURISTIC_MAP.get(heuristic_str, HeuristicType.VERTICAL))
         cp.compute(return_home=True)
         res = cp.result()
 
+
         # Save debug image with numeric values and planned path
         save_debug_image(cell_values, grid, res[4], start)
+
         self._send_json(200, {
             'found': res[0],
             'steps': res[1],
