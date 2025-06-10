@@ -64,10 +64,12 @@ class CoveragePlanner():
     def set_debug_level(self, level):
         self.debug_level = level
 
-    def compute(self):
+    def compute(self, return_home=False):
         self.printd("compute", "{}".format(self.state_.name), 1)
         while self.compute_non_blocking():
             pass
+        if return_home:
+            self.return_to_start()
         return self.state_
 
     # The finite state machine that will handle searching strategy
@@ -389,6 +391,83 @@ class CoveragePlanner():
         # res:          [Success?, trajectory, final_coverage_grid,total_cost_actions,total_steps]
         res = [found, trajectory, None, total_cost, total_steps]
         return res
+    
+
+    # Find the shortest path between init and a specific goal using the A* Search algorithm
+    def a_star_search_goal(self, initial_pos, goal_pos, heuristic):
+
+        closed = np.zeros_like(self.map_grid)
+        closed[initial_pos[0]][initial_pos[1]] = 1
+
+        orientation = np.full(
+            (np.size(self.map_grid, 0), np.size(self.map_grid, 1)), -1)
+
+        x = initial_pos[0]
+        y = initial_pos[1]
+        g = 0
+        f = g + heuristic[x][y]
+        open = [[f, g, x, y]]
+
+        found = False
+        resign = False
+
+        while not found and not resign:
+
+            if len(open) == 0:
+                resign = True
+            else:
+                open.sort(key=lambda x: x[0])
+                open.reverse()
+                next = open.pop()
+
+                x = next[2]
+                y = next[3]
+                g = next[1]
+
+                if x == goal_pos[0] and y == goal_pos[1]:
+                    found = True
+                else:
+                    for i in range(len(self.movement)):
+                        x_next = x + self.movement[i][0]
+                        y_next = y + self.movement[i][1]
+                        if x_next >= 0 and x_next < len(self.map_grid) and y_next >= 0 and y_next < len(self.map_grid[0]):
+                            if closed[x_next][y_next] == 0 and self.map_grid[x_next][y_next] != 1:
+                                g2 = g + self.a_star_movement_cost[i]
+                                f2 = g2 + heuristic[x_next][y_next]
+                                open.append([f2, g2, x_next, y_next])
+                                closed[x_next][y_next] = 1
+                                orientation[x_next][y_next] = i
+
+        trajectory = []
+
+        if found:
+            trajectory = [[0, x, y, orientation[x][y], None, None, self.state_]]
+            orientation[initial_pos[0]][initial_pos[1]] = initial_pos[2]
+            while (x != initial_pos[0] or y != initial_pos[1]):
+                x0 = x - self.movement[orientation[x][y]][0]
+                y0 = y - self.movement[orientation[x][y]][1]
+                o0 = orientation[x0][y0]
+                a0 = None
+                a = (trajectory[-1][3]-o0 + 1) % len(self.action)
+                trajectory[-1][4] = a
+                trajectory.append([0, x0, y0, o0, a0, a, self.state_])
+                x = x0
+                y = y0
+            trajectory.reverse()
+
+        total_cost = self.calculate_trajectory_cost(trajectory)
+        total_steps = len(trajectory) - 1
+
+        res = [found, trajectory, None, total_cost, total_steps]
+        return res
+    # Compute a path from the current position back to the map start
+    def return_to_start(self):
+        start = self.get_start_position()
+        heuristic = self.create_heuristic(start, self.a_star_heuristic)
+        res = self.a_star_search_goal(self.current_pos, start, heuristic)
+        if res[0]:
+            self.current_pos = [res[1][-1][1], res[1][-1][2], res[1][-1][3]]
+            self.append_trajectory(res[1], "A*")
 
     # Merge the two given grids and return True if all visitable positions were visited
     def check_full_coverage(self, grid, closed):
