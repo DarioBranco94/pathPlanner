@@ -62,6 +62,11 @@ class CoveragePlanner():
         # The grid that accumulate the visited positions in the map
         self.coverage_grid = np.copy(map_open)
 
+        # Grid used to determine when coverage is complete. Cells with a value
+        # below ``low_value_threshold`` will be marked as already covered so the
+        # planner does not try to sweep them.
+        self.coverage_target_grid = np.copy(map_open)
+
         # The FSM variable
         self.state_ = PlannerStatus.STANDBY
 
@@ -155,6 +160,15 @@ class CoveragePlanner():
             orientation=initial_orientation)
 
         self.coverage_grid = np.copy(self.map_grid)
+        self.coverage_target_grid = np.copy(self.map_grid)
+
+        # Cells with a value below the threshold are marked as already visited
+        # in the coverage grids. They remain traversable in ``map_grid`` but
+        # will not be targeted for coverage.
+        low_mask = self.cell_values < self.low_value_threshold
+        self.coverage_grid[low_mask & (self.map_grid != 2)] = 1
+        self.coverage_target_grid[low_mask & (self.map_grid != 2)] = 1
+
         self.current_trajectory = []
         self.current_trajectory_annotations = []
 
@@ -190,7 +204,7 @@ class CoveragePlanner():
 
         while not complete_coverage and not resign:
 
-            if self.check_full_coverage(self.map_grid, closed):
+            if self.check_full_coverage(self.coverage_target_grid, closed):
                 self.printd("coverage_search", "Complete coverage", 2)
                 complete_coverage = True
 
