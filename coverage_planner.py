@@ -20,8 +20,20 @@ class HeuristicType(Enum):
 
 class CoveragePlanner():
 
-    def __init__(self, map_open):
+    def __init__(self, map_open, cell_values=None,
+                 low_value_threshold=0.1, low_value_penalty=50.0):
         self.map_grid = map_open
+
+        # Optional matrix with cell values used to bias the search. It must
+        # have the same size as the map grid. When provided, cells with a value
+        # lower than ``low_value_threshold`` will incur ``low_value_penalty``
+        # extra cost when traversed.
+        if cell_values is not None:
+            self.cell_values = np.array(cell_values, dtype=float)
+        else:
+            self.cell_values = np.zeros_like(map_open, dtype=float)
+        self.low_value_threshold = low_value_threshold
+        self.low_value_penalty = low_value_penalty
 
         # Possible movements in x and y axis
         self.movement = [[-1,  0],  # up
@@ -202,8 +214,11 @@ class CoveragePlanner():
                     if x2 >= 0 and x2 < len(self.map_grid) and y2 >= 0 and y2 < len(self.map_grid[0]):
                         # Check if this position was already visited or if it is a visitable position on the map
                         if closed[x2][y2] == 0 and self.map_grid[x2][y2] == 0:
-                            # Compose the projected: actual accumulated cost + action cost + heuristic cost at given position
-                            v2 = v + self.action_cost[a] + heuristic[x2][y2]
+                            penalty = 0.0
+                            if self.cell_values[x2][y2] < self.low_value_threshold:
+                                penalty = self.low_value_penalty
+                            # Compose the projected: actual accumulated cost + action cost + heuristic cost + penalty
+                            v2 = v + self.action_cost[a] + heuristic[x2][y2] + penalty
                             possible_next_coords.append(
                                 [v2, x2, y2, o2, a, None, self.state_])
 
@@ -320,7 +335,10 @@ class CoveragePlanner():
                         if x_next >= 0 and x_next < len(self.map_grid) and y_next >= 0 and y_next < len(self.map_grid[0]):
                             # Check if this position was already visited or if it is a visitable position on the map
                             if closed[x_next][y_next] == 0 and self.map_grid[x_next][y_next] == 0:
-                                g2 = g + self.a_star_movement_cost[i]
+                                penalty = 0.0
+                                if self.cell_values[x_next][y_next] < self.low_value_threshold:
+                                    penalty = self.low_value_penalty
+                                g2 = g + self.a_star_movement_cost[i] + penalty
                                 f = g2 + heuristic[x_next][y_next]
                                 open.append([f, g2, x_next, y_next])
                                 closed[x_next][y_next] = 1
@@ -432,7 +450,10 @@ class CoveragePlanner():
                         y_next = y + self.movement[i][1]
                         if x_next >= 0 and x_next < len(self.map_grid) and y_next >= 0 and y_next < len(self.map_grid[0]):
                             if closed[x_next][y_next] == 0 and self.map_grid[x_next][y_next] != 1:
-                                g2 = g + self.a_star_movement_cost[i]
+                                penalty = 0.0
+                                if self.cell_values[x_next][y_next] < self.low_value_threshold:
+                                    penalty = self.low_value_penalty
+                                g2 = g + self.a_star_movement_cost[i] + penalty
                                 f2 = g2 + heuristic[x_next][y_next]
                                 open.append([f2, g2, x_next, y_next])
                                 closed[x_next][y_next] = 1
