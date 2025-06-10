@@ -35,6 +35,37 @@ def fetch_cell_values(rows, cols):
         print(f'Error fetching cell values: {exc}')
     return np.zeros((rows, cols))
 
+
+def print_debug_grid(cell_values, grid, path, start):
+    """Print the cell value grid overlayed with the computed path."""
+    rows, cols = cell_values.shape
+    view = [[f"{cell_values[r][c]:.2f}" for c in range(cols)] for r in range(rows)]
+
+    # mark obstacles
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == 1:
+                view[r][c] = " XXXX"
+
+    # arrows for path steps
+    arrow_map = {(1, 0): 'v', (-1, 0): '^', (0, 1): '>', (0, -1): '<'}
+    for i in range(len(path) - 1):
+        r1, c1 = path[i]
+        r2, c2 = path[i + 1]
+        dr, dc = r2 - r1, c2 - c1
+        view[r1][c1] = f"  {arrow_map.get((dr, dc), '*')}  "
+
+    if path:
+        lr, lc = path[-1]
+        view[lr][lc] = "  E  "
+
+    sr, sc = start
+    view[sr][sc] = "  S  "
+
+    print("Debug grid:")
+    for row in view:
+        print(" ".join(f"{cell:>5}" for cell in row))
+
 class PlannerHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, data):
         body = json.dumps(data).encode('utf-8')
@@ -103,6 +134,9 @@ class PlannerHandler(BaseHTTPRequestHandler):
                      cp_heuristic=HEURISTIC_MAP.get(heuristic_str, HeuristicType.VERTICAL))
             cp.compute(return_home=True)
             res = cp.result()
+
+        # Print debug map with values and planned path
+        print_debug_grid(cell_values, grid, res[4], start)
         self._send_json(200, {
             'found': res[0],
             'steps': res[1],
