@@ -140,7 +140,6 @@ class PlannerHandler(BaseHTTPRequestHandler):
         cp.compute(return_home=True)
         res = cp.result()
 
-
         # Save debug image with numeric values and planned path
         save_debug_image(cell_values, grid, res[4], start)
 
