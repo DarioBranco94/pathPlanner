@@ -130,27 +130,13 @@ class PlannerHandler(BaseHTTPRequestHandler):
             return
         grid[sr][sc] = 2
 
-        # Prefer paths through cells with value >= 0.1 by initially treating
-        # low-value cells as obstacles. If no valid path is found, fall back to
-        # allow traversal with penalties.
-        preferred_grid = np.copy(grid)
-        for r in range(rows):
-            for c in range(cols):
-                if cell_values[r][c] < 0.1 and preferred_grid[r][c] == 0 and not (r == sr and c == sc):
-                    preferred_grid[r][c] = 1
-
-        cp = CoveragePlanner(preferred_grid, cell_values=cell_values)
+        # Run the planner with a penalty on low-value cells so the search will
+        # try to avoid them but still traverse a minimal amount if necessary.
+        cp = CoveragePlanner(grid, cell_values=cell_values)
         cp.start(initial_orientation=orientation,
                  cp_heuristic=HEURISTIC_MAP.get(heuristic_str, HeuristicType.VERTICAL))
         cp.compute(return_home=True)
         res = cp.result()
-
-        if not res[0]:
-            cp = CoveragePlanner(grid, cell_values=cell_values)
-            cp.start(initial_orientation=orientation,
-                     cp_heuristic=HEURISTIC_MAP.get(heuristic_str, HeuristicType.VERTICAL))
-            cp.compute(return_home=True)
-            res = cp.result()
 
 
         # Save debug image with numeric values and planned path
