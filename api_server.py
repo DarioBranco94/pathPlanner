@@ -38,7 +38,6 @@ def fetch_cell_values(rows, cols):
     return np.zeros((rows, cols))
 
 
-
 def save_debug_image(cell_values, grid, path, start, filename=None):
     """Save a PNG image of the grid with numeric values and the planned path."""
     rows, cols = cell_values.shape
@@ -82,6 +81,7 @@ def save_debug_image(cell_values, grid, path, start, filename=None):
     fig.savefig(filename, bbox_inches="tight")
     plt.close(fig)
     print(f"Debug image saved to {filename}")
+
 
 class PlannerHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, data):
@@ -152,8 +152,10 @@ class PlannerHandler(BaseHTTPRequestHandler):
             cp.compute(return_home=True)
             res = cp.result()
 
+
         # Save debug image with numeric values and planned path
         save_debug_image(cell_values, grid, res[4], start)
+
         self._send_json(200, {
             'found': res[0],
             'steps': res[1],
